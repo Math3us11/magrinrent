@@ -18,7 +18,7 @@ onMounted(() => {
 
 async function editarAluguel(dados: AluguelFormData) {
   try {
-    alugueisStore.editarAluguel(id.value, dados)
+    await alugueisStore.editarAluguel(id.value, dados)
     await navigateTo('/alugueis')
   } catch (error) {
     alert(error instanceof Error ? error.message : 'Erro ao editar aluguel.')

@@ -15,9 +15,12 @@ onMounted(() => {
 })
 
 async function editarBicicleta(dados: BicicletaFormData) {
-  bicicletasStore.editarBicicleta(id.value, dados)
-
-  await navigateTo('/bicicletas')
+  try {
+    await bicicletasStore.editarBicicleta(id.value, dados)
+    await navigateTo('/bicicletas')
+  } catch (error) {
+    alert('Erro ao editar bicicleta.')
+  }
 }
 </script>
 

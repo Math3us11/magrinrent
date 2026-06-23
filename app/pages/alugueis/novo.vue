@@ -11,7 +11,7 @@ onMounted(() => {
 
 async function cadastrarAluguel(dados: AluguelFormData) {
   try {
-    alugueisStore.cadastrarAluguel(dados)
+    await alugueisStore.cadastrarAluguel(dados)
     await navigateTo('/alugueis')
   } catch (error) {
     alert(error instanceof Error ? error.message : 'Erro ao cadastrar aluguel.')

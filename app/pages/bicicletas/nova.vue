@@ -8,10 +8,14 @@ onMounted(() => {
 })
 
 async function cadastrarBicicleta(dados: BicicletaFormData) {
-  bicicletasStore.cadastrarBicicleta(dados)
-
-  await navigateTo('/bicicletas')
+  try {
+    await bicicletasStore.cadastrarBicicleta(dados)
+    await navigateTo('/bicicletas')
+  } catch (error) {
+    alert('Erro ao cadastrar bicicleta.')
+  }
 }
+
 </script>
 
 <template>

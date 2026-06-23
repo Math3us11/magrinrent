@@ -2,22 +2,11 @@ import { defineStore } from 'pinia'
 import { useBicicletasStore } from '~/stores/bicicleta'
 import type { Aluguel, AluguelFormData } from '~/types/aluguel'
 
-const STORAGE_KEY = 'pedalrent_alugueis'
-
-function calcularQuantidadeDias(dataRetirada: string, dataDevolucao: string) {
-    const inicio = new Date(dataRetirada)
-    const fim = new Date(dataDevolucao)
-
-    const diferenca = fim.getTime() - inicio.getTime()
-    const dias = Math.ceil(diferenca / (1000 * 60 * 60 * 24))
-
-    return Math.max(dias, 1)
-}
-
 export const useAlugueisStore = defineStore('alugueis', {
     state: () => ({
         alugueis: [] as Aluguel[],
-        carregado: false
+        carregando: false,
+        erro: null as string | null
     }),
 
     getters: {
@@ -33,176 +22,119 @@ export const useAlugueisStore = defineStore('alugueis', {
     },
 
     actions: {
-        carregarAlugueis() {
-            if (!import.meta.client || this.carregado) return
+        async carregarAlugueis() {
+            this.carregando = true
+            this.erro = null
 
-            const dadosSalvos = localStorage.getItem(STORAGE_KEY)
-
-            if (dadosSalvos) {
-                this.alugueis = JSON.parse(dadosSalvos)
+            try {
+                const dados = await $fetch<Aluguel[]>('/api/alugueis')
+                this.alugueis = dados
+            } catch (error) {
+                this.erro = 'Erro ao carregar aluguéis.'
+                console.error(error)
+            } finally {
+                this.carregando = false
             }
-
-            this.carregado = true
         },
 
-        salvarAlugueis() {
-            if (!import.meta.client) return
+        async cadastrarAluguel(dados: AluguelFormData) {
+            this.carregando = true
+            this.erro = null
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.alugueis))
+            try {
+                await $fetch('/api/alugueis', {
+                    method: 'POST',
+                    body: dados
+                })
+
+                await this.carregarAlugueis()
+
+                const bicicletasStore = useBicicletasStore()
+                await bicicletasStore.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao cadastrar aluguel.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
+            }
         },
 
-        calcularValorTotal(dataRetirada: string, dataDevolucao: string, valorDiaria: number) {
-            const dias = calcularQuantidadeDias(dataRetirada, dataDevolucao)
-            return dias * valorDiaria
+        async editarAluguel(id: number, dados: AluguelFormData) {
+            this.carregando = true
+            this.erro = null
+
+            try {
+                await $fetch(`/api/alugueis/${id}`, {
+                    method: 'PUT',
+                    body: dados
+                })
+
+                await this.carregarAlugueis()
+
+                const bicicletasStore = useBicicletasStore()
+                await bicicletasStore.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao editar aluguel.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
+            }
         },
 
-        cadastrarAluguel(dados: AluguelFormData) {
-            const bicicletasStore = useBicicletasStore()
-            bicicletasStore.carregarBicicletas()
-
-            const bicicleta = bicicletasStore.buscarPorId(dados.bicicletaId)
-
-            if (!bicicleta) {
-                throw new Error('Bicicleta não encontrada.')
-            }
-
-            if (bicicleta.status !== 'Disponível') {
-                throw new Error('Esta bicicleta não está disponível para aluguel.')
-            }
-
-            if (new Date(dados.dataDevolucao) < new Date(dados.dataRetirada)) {
-                throw new Error('A data de devolução não pode ser menor que a data de retirada.')
-            }
-
-            const novoAluguel: Aluguel = {
-                id: Date.now(),
-                nomeCliente: dados.nomeCliente,
-                telefoneCliente: dados.telefoneCliente,
-                bicicletaId: dados.bicicletaId,
-                bicicletaNome: bicicleta.nome,
-                dataRetirada: dados.dataRetirada,
-                dataDevolucao: dados.dataDevolucao,
-                valorTotal: this.calcularValorTotal(
-                    dados.dataRetirada,
-                    dados.dataDevolucao,
-                    bicicleta.valorDiaria
-                ),
-                status: 'Ativo',
-                observacao: dados.observacao
-            }
-
-            this.alugueis.push(novoAluguel)
-            this.salvarAlugueis()
-
-            bicicletasStore.alterarStatus(bicicleta.id, 'Alugada')
-        },
-
-        editarAluguel(id: number, dados: AluguelFormData) {
-            const bicicletasStore = useBicicletasStore()
-            bicicletasStore.carregarBicicletas()
-
-            const index = this.alugueis.findIndex((aluguel) => aluguel.id === id)
-
-            if (index === -1) {
-                throw new Error('Aluguel não encontrado.')
-            }
-
-            const aluguelAtual = this.alugueis[index]
-            const bicicletaNova = bicicletasStore.buscarPorId(dados.bicicletaId)
-
-            if (!bicicletaNova) {
-                throw new Error('Bicicleta não encontrada.')
-            }
-
-            if (new Date(dados.dataDevolucao) < new Date(dados.dataRetirada)) {
-                throw new Error('A data de devolução não pode ser menor que a data de retirada.')
-            }
-
-            const mudouBicicleta = aluguelAtual.bicicletaId !== dados.bicicletaId
-            const estavaAtivo = aluguelAtual.status === 'Ativo'
-            const ficaraAtivo = dados.status === 'Ativo'
-
-            if (mudouBicicleta && ficaraAtivo && bicicletaNova.status !== 'Disponível') {
-                throw new Error('A nova bicicleta selecionada não está disponível.')
-            }
-
-            if (estavaAtivo && !ficaraAtivo) {
-                bicicletasStore.alterarStatus(aluguelAtual.bicicletaId, 'Disponível')
-            }
-
-            if (!estavaAtivo && ficaraAtivo) {
-                if (bicicletaNova.status !== 'Disponível') {
-                    throw new Error('Esta bicicleta não está disponível para aluguel.')
-                }
-
-                bicicletasStore.alterarStatus(bicicletaNova.id, 'Alugada')
-            }
-
-            if (estavaAtivo && ficaraAtivo && mudouBicicleta) {
-                bicicletasStore.alterarStatus(aluguelAtual.bicicletaId, 'Disponível')
-                bicicletasStore.alterarStatus(bicicletaNova.id, 'Alugada')
-            }
-
-            this.alugueis[index] = {
-                id,
-                nomeCliente: dados.nomeCliente,
-                telefoneCliente: dados.telefoneCliente,
-                bicicletaId: dados.bicicletaId,
-                bicicletaNome: bicicletaNova.nome,
-                dataRetirada: dados.dataRetirada,
-                dataDevolucao: dados.dataDevolucao,
-                valorTotal: this.calcularValorTotal(
-                    dados.dataRetirada,
-                    dados.dataDevolucao,
-                    bicicletaNova.valorDiaria
-                ),
-                status: dados.status,
-                observacao: dados.observacao
-            }
-
-            this.salvarAlugueis()
-        },
-
-        finalizarAluguel(id: number) {
-            const bicicletasStore = useBicicletasStore()
-            bicicletasStore.carregarBicicletas()
-
+        async finalizarAluguel(id: number) {
             const aluguel = this.buscarPorId(id)
 
             if (!aluguel) return
 
-            aluguel.status = 'Finalizado'
-            this.salvarAlugueis()
-
-            bicicletasStore.alterarStatus(aluguel.bicicletaId, 'Disponível')
+            await this.editarAluguel(id, {
+                nomeCliente: aluguel.nomeCliente,
+                telefoneCliente: aluguel.telefoneCliente,
+                bicicletaId: aluguel.bicicletaId,
+                dataRetirada: aluguel.dataRetirada,
+                dataDevolucao: aluguel.dataDevolucao,
+                status: 'Finalizado',
+                observacao: aluguel.observacao
+            })
         },
 
-        cancelarAluguel(id: number) {
-            const bicicletasStore = useBicicletasStore()
-            bicicletasStore.carregarBicicletas()
-
+        async cancelarAluguel(id: number) {
             const aluguel = this.buscarPorId(id)
 
             if (!aluguel) return
 
-            aluguel.status = 'Cancelado'
-            this.salvarAlugueis()
-
-            bicicletasStore.alterarStatus(aluguel.bicicletaId, 'Disponível')
+            await this.editarAluguel(id, {
+                nomeCliente: aluguel.nomeCliente,
+                telefoneCliente: aluguel.telefoneCliente,
+                bicicletaId: aluguel.bicicletaId,
+                dataRetirada: aluguel.dataRetirada,
+                dataDevolucao: aluguel.dataDevolucao,
+                status: 'Cancelado',
+                observacao: aluguel.observacao
+            })
         },
 
-        excluirAluguel(id: number) {
-            const bicicletasStore = useBicicletasStore()
-            bicicletasStore.carregarBicicletas()
+        async excluirAluguel(id: number) {
+            this.carregando = true
+            this.erro = null
 
-            const aluguel = this.buscarPorId(id)
+            try {
+                await $fetch(`/api/alugueis/${id}`, {
+                    method: 'DELETE'
+                })
 
-            if (aluguel?.status === 'Ativo') {
-                bicicletasStore.alterarStatus(aluguel.bicicletaId, 'Disponível')
+                await this.carregarAlugueis()
+
+                const bicicletasStore = useBicicletasStore()
+                await bicicletasStore.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao excluir aluguel.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
             }
-
-            this.alugueis = this.alugueis.filter((aluguel) => aluguel.id !== id)
-            this.salvarAlugueis()
         }
     }
 })

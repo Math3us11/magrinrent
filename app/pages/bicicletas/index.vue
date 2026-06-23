@@ -5,11 +5,15 @@ onMounted(() => {
   bicicletasStore.carregarBicicletas()
 })
 
-function excluirBicicleta(id: number) {
+async function excluirBicicleta(id: number) {
   const confirmar = confirm('Tem certeza que deseja excluir esta bicicleta?')
 
-  if (confirmar) {
-    bicicletasStore.excluirBicicleta(id)
+  if (!confirmar) return
+
+  try {
+    await bicicletasStore.excluirBicicleta(id)
+  } catch (error) {
+    alert('Erro ao excluir bicicleta.')
   }
 }
 

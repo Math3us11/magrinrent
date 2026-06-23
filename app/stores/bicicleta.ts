@@ -1,39 +1,11 @@
 import { defineStore } from 'pinia'
 import type { Bicicleta, BicicletaFormData, StatusBicicleta } from '~/types/bicicleta'
 
-const STORAGE_KEY = 'pedalrent_bicicletas'
-
-const bicicletasIniciais: Bicicleta[] = [
-    {
-        id: 1,
-        nome: 'Bicicleta Aro 29',
-        categoria: 'Mountain Bike',
-        valorDiaria: 35,
-        status: 'Disponível',
-        descricao: 'Bicicleta esportiva ideal para trilhas e passeios longos.'
-    },
-    {
-        id: 2,
-        nome: 'Bike Urbana',
-        categoria: 'Urbana',
-        valorDiaria: 25,
-        status: 'Disponível',
-        descricao: 'Bicicleta confortável para uso urbano e deslocamentos curtos.'
-    },
-    {
-        id: 3,
-        nome: 'Bicicleta Infantil',
-        categoria: 'Infantil',
-        valorDiaria: 18,
-        status: 'Manutenção',
-        descricao: 'Modelo infantil para lazer em parques e áreas abertas.'
-    }
-]
-
 export const useBicicletasStore = defineStore('bicicletas', {
     state: () => ({
         bicicletas: [] as Bicicleta[],
-        carregado: false
+        carregando: false,
+        erro: null as string | null
     }),
 
     getters: {
@@ -49,62 +21,93 @@ export const useBicicletasStore = defineStore('bicicletas', {
     },
 
     actions: {
-        carregarBicicletas() {
-            if (!import.meta.client || this.carregado) return
+        async carregarBicicletas() {
+            this.carregando = true
+            this.erro = null
 
-            const dadosSalvos = localStorage.getItem(STORAGE_KEY)
+            try {
+                const dados = await $fetch<Bicicleta[]>('/api/bicicletas')
 
-            if (dadosSalvos) {
-                this.bicicletas = JSON.parse(dadosSalvos)
-            } else {
-                this.bicicletas = bicicletasIniciais
-                this.salvarBicicletas()
-            }
-
-            this.carregado = true
-        },
-
-        salvarBicicletas() {
-            if (!import.meta.client) return
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.bicicletas))
-        },
-
-        cadastrarBicicleta(dados: BicicletaFormData) {
-            const novaBicicleta: Bicicleta = {
-                id: Date.now(),
-                ...dados
-            }
-
-            this.bicicletas.push(novaBicicleta)
-            this.salvarBicicletas()
-        },
-
-        editarBicicleta(id: number, dados: BicicletaFormData) {
-            const index = this.bicicletas.findIndex((bicicleta) => bicicleta.id === id)
-
-            if (index !== -1) {
-                this.bicicletas[index] = {
-                    id,
-                    ...dados
-                }
-
-                this.salvarBicicletas()
+                this.bicicletas = dados
+            } catch (error) {
+                this.erro = 'Erro ao carregar bicicletas.'
+                console.error(error)
+            } finally {
+                this.carregando = false
             }
         },
 
-        excluirBicicleta(id: number) {
-            this.bicicletas = this.bicicletas.filter((bicicleta) => bicicleta.id !== id)
-            this.salvarBicicletas()
+        async cadastrarBicicleta(dados: BicicletaFormData) {
+            this.carregando = true
+            this.erro = null
+
+            try {
+                await $fetch('/api/bicicletas', {
+                    method: 'POST',
+                    body: dados
+                })
+
+                await this.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao cadastrar bicicleta.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
+            }
         },
 
-        alterarStatus(id: number, status: StatusBicicleta) {
-            const bicicleta = this.bicicletas.find((bicicleta) => bicicleta.id === id)
+        async editarBicicleta(id: number, dados: BicicletaFormData) {
+            this.carregando = true
+            this.erro = null
 
-            if (bicicleta) {
-                bicicleta.status = status
-                this.salvarBicicletas()
+            try {
+                await $fetch(`/api/bicicletas/${id}`, {
+                    method: 'PUT',
+                    body: dados
+                })
+
+                await this.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao editar bicicleta.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
             }
+        },
+
+        async excluirBicicleta(id: number) {
+            this.carregando = true
+            this.erro = null
+
+            try {
+                await $fetch(`/api/bicicletas/${id}`, {
+                    method: 'DELETE'
+                })
+
+                await this.carregarBicicletas()
+            } catch (error) {
+                this.erro = 'Erro ao excluir bicicleta.'
+                console.error(error)
+                throw error
+            } finally {
+                this.carregando = false
+            }
+        },
+
+        async alterarStatus(id: number, status: StatusBicicleta) {
+            const bicicleta = this.buscarPorId(id)
+
+            if (!bicicleta) return
+
+            await this.editarBicicleta(id, {
+                nome: bicicleta.nome,
+                categoria: bicicleta.categoria,
+                valorDiaria: bicicleta.valorDiaria,
+                status,
+                descricao: bicicleta.descricao
+            })
         }
     }
 })
