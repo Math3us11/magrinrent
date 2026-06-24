@@ -1,11 +1,11 @@
 <template>
-  <div class="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+  <div>
     <AppHeader />
 
-    <main class="flex-1">
-      <slot />
-    </main>
+    <slot />
 
     <AppFooter />
+
+    <AppFeedback />
   </div>
 </template>

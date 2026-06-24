@@ -2,6 +2,7 @@
 const alugueisStore = useAlugueisStore()
 const bicicletasStore = useBicicletasStore()
 const authStore = useAuthStore()
+const feedbackStore = useFeedbackStore()
 
 onMounted(async () => {
   if (!authStore.inicializado) {
@@ -12,8 +13,28 @@ onMounted(async () => {
   await alugueisStore.carregarAlugueis()
 })
 
+const totalAlugueis = computed(() => alugueisStore.alugueis.length)
+
+const alugueisAtivos = computed(() => {
+  return alugueisStore.alugueis.filter((aluguel) => aluguel.status === 'Ativo').length
+})
+
+const alugueisFinalizados = computed(() => {
+  return alugueisStore.alugueis.filter((aluguel) => aluguel.status === 'Finalizado').length
+})
+
+const alugueisCancelados = computed(() => {
+  return alugueisStore.alugueis.filter((aluguel) => aluguel.status === 'Cancelado').length
+})
+
+const valorTotalAlugueis = computed(() => {
+  return alugueisStore.alugueis.reduce((total, aluguel) => {
+    return total + Number(aluguel.valorTotal)
+  }, 0)
+})
+
 function formatarMoeda(valor: number) {
-  return valor.toLocaleString('pt-BR', {
+  return Number(valor).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL'
   })
@@ -25,253 +46,353 @@ function formatarData(data: string) {
 
 function statusClasse(status: string) {
   if (status === 'Ativo') {
-    return 'bg-emerald-100 text-emerald-700'
+    return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
   }
 
   if (status === 'Finalizado') {
-    return 'bg-blue-100 text-blue-700'
+    return 'border-blue-400/20 bg-blue-400/10 text-blue-300'
   }
 
-  return 'bg-red-100 text-red-700'
+  return 'border-red-400/20 bg-red-400/10 text-red-300'
+}
+
+function cardIcone(status: string) {
+  if (status === 'Ativo') return '🚲'
+  if (status === 'Finalizado') return '✅'
+  return '🚫'
 }
 
 async function finalizarAluguel(id: number) {
-  const confirmar = confirm('Deseja finalizar este aluguel?')
+  const confirmou = await feedbackStore.confirmar({
+    titulo: 'Finalizar aluguel',
+    mensagem: 'Deseja finalizar este aluguel? A bicicleta voltará a ficar disponível.',
+    textoConfirmar: 'Finalizar',
+    textoCancelar: 'Cancelar'
+  })
 
-  if (!confirmar) return
+  if (!confirmou) return
 
   try {
     await alugueisStore.finalizarAluguel(id)
+
+    feedbackStore.sucesso('Aluguel finalizado com sucesso.')
   } catch (error) {
-    alert('Erro ao finalizar aluguel.')
+    feedbackStore.erro('Erro ao finalizar aluguel.')
   }
 }
 
 async function cancelarAluguel(id: number) {
-  const confirmar = confirm('Deseja cancelar este aluguel?')
+  const confirmou = await feedbackStore.confirmar({
+    titulo: 'Cancelar aluguel',
+    mensagem: 'Deseja cancelar este aluguel? A bicicleta voltará a ficar disponível.',
+    textoConfirmar: 'Cancelar aluguel',
+    textoCancelar: 'Voltar',
+    tipo: 'perigo'
+  })
 
-  if (!confirmar) return
+  if (!confirmou) return
 
   try {
     await alugueisStore.cancelarAluguel(id)
+
+    feedbackStore.sucesso('Aluguel cancelado com sucesso.')
   } catch (error) {
-    alert('Erro ao cancelar aluguel.')
+    feedbackStore.erro('Erro ao cancelar aluguel.')
   }
 }
 
 async function excluirAluguel(id: number) {
-  const confirmar = confirm('Tem certeza que deseja excluir este aluguel?')
+  const confirmou = await feedbackStore.confirmar({
+    titulo: 'Excluir aluguel',
+    mensagem: 'Tem certeza que deseja excluir este aluguel? Essa ação não poderá ser desfeita.',
+    textoConfirmar: 'Excluir',
+    textoCancelar: 'Cancelar',
+    tipo: 'perigo'
+  })
 
-  if (!confirmar) return
+  if (!confirmou) return
 
   try {
     await alugueisStore.excluirAluguel(id)
+
+    feedbackStore.sucesso('Aluguel excluído com sucesso.')
   } catch (error) {
-    alert('Erro ao excluir aluguel.')
+    feedbackStore.erro('Erro ao excluir aluguel.')
   }
 }
 </script>
 
 <template>
-  <section class="max-w-6xl mx-auto px-6 py-12">
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p class="text-sm font-semibold text-emerald-700 uppercase tracking-wide">
-          {{ authStore.isAdmin ? 'Gestão administrativa' : 'Área do cliente' }}
-        </p>
+  <main class="min-h-screen bg-slate-50">
+    <section class="relative overflow-hidden bg-slate-950 text-white">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.18),transparent_35%)]" />
 
-        <h1 class="mt-2 text-3xl font-bold text-slate-900">
-          {{ authStore.isAdmin ? 'Aluguéis' : 'Meus aluguéis' }}
-        </h1>
+      <div class="relative max-w-6xl mx-auto px-6 py-14 lg:py-16">
+        <div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-300 backdrop-blur">
+              <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
 
-        <p class="mt-2 text-slate-600">
-          <span v-if="authStore.isAdmin">
-            Gerencie todos os aluguéis realizados pela MagrinRent.
-          </span>
+              {{ authStore.isAdmin ? 'Gestão administrativa' : 'Área do cliente' }}
+            </div>
 
-          <span v-else>
-            Acompanhe seus aluguéis e solicite novas bicicletas disponíveis.
-          </span>
-        </p>
-      </div>
-
-      <NuxtLink
-        to="/alugueis/novo"
-        class="bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-colors text-center"
-      >
-        Novo aluguel
-      </NuxtLink>
-    </div>
-
-    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <p class="text-sm text-slate-500">
-          Total de aluguéis
-        </p>
-
-        <p class="mt-2 text-3xl font-bold text-slate-900">
-          {{ alugueisStore.totalAlugueis }}
-        </p>
-      </div>
-
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <p class="text-sm text-slate-500">
-          Aluguéis ativos
-        </p>
-
-        <p class="mt-2 text-3xl font-bold text-emerald-700">
-          {{ alugueisStore.alugueisAtivos.length }}
-        </p>
-      </div>
-
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <p class="text-sm text-slate-500">
-          Bicicletas disponíveis
-        </p>
-
-        <p class="mt-2 text-3xl font-bold text-blue-700">
-          {{ bicicletasStore.bicicletasDisponiveis.length }}
-        </p>
-      </div>
-
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <p class="text-sm text-slate-500">
-          Perfil atual
-        </p>
-
-        <p class="mt-2 text-2xl font-bold text-slate-900 capitalize">
-          {{ authStore.usuario?.tipo }}
-        </p>
-      </div>
-    </div>
-
-    <div
-      v-if="alugueisStore.carregando"
-      class="mt-8 bg-white border border-slate-200 rounded-xl p-6 text-slate-600"
-    >
-      Carregando aluguéis...
-    </div>
-
-    <div
-      v-else-if="alugueisStore.alugueis.length > 0"
-      class="mt-8 overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm"
-    >
-      <table class="w-full text-sm">
-        <thead class="bg-slate-100 text-slate-700">
-          <tr>
-            <th class="text-left px-4 py-3">Cliente</th>
-            <th class="text-left px-4 py-3">Bicicleta</th>
-            <th class="text-left px-4 py-3">Período</th>
-            <th class="text-left px-4 py-3">Valor</th>
-            <th class="text-left px-4 py-3">Status</th>
-            <th class="text-left px-4 py-3">Ações</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <tr
-            v-for="aluguel in alugueisStore.alugueis"
-            :key="aluguel.id"
-            class="border-t border-slate-200"
-          >
-            <td class="px-4 py-4">
-              <p class="font-semibold text-slate-900">
-                {{ aluguel.nomeCliente }}
-              </p>
-
-              <p class="text-xs text-slate-500">
-                {{ aluguel.telefoneCliente }}
-              </p>
-            </td>
-
-            <td class="px-4 py-4 text-slate-700">
-              {{ aluguel.bicicletaNome }}
-            </td>
-
-            <td class="px-4 py-4 text-slate-700">
-              {{ formatarData(aluguel.dataRetirada) }}
-              até
-              {{ formatarData(aluguel.dataDevolucao) }}
-            </td>
-
-            <td class="px-4 py-4 font-semibold text-emerald-700">
-              {{ formatarMoeda(aluguel.valorTotal) }}
-            </td>
-
-            <td class="px-4 py-4">
-              <span
-                class="text-xs font-semibold px-3 py-1 rounded-full"
-                :class="statusClasse(aluguel.status)"
-              >
-                {{ aluguel.status }}
+            <h1 class="mt-6 text-4xl md:text-5xl font-black leading-tight tracking-tight">
+              {{ authStore.isAdmin ? 'Gerenciamento de' : 'Meus' }}
+              <span class="block bg-gradient-to-r from-emerald-300 via-teal-200 to-blue-300 bg-clip-text text-transparent">
+                aluguéis.
               </span>
-            </td>
+            </h1>
 
-            <td class="px-4 py-4">
-              <div class="flex flex-wrap gap-2">
-                <NuxtLink
-                  v-if="authStore.isAdmin"
-                  :to="`/alugueis/${aluguel.id}/editar`"
-                  class="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors"
-                >
-                  Editar
-                </NuxtLink>
+            <p class="mt-5 max-w-2xl text-lg leading-relaxed text-slate-300">
+              <span v-if="authStore.isAdmin">
+                Acompanhe todos os aluguéis cadastrados, finalize reservas, cancele solicitações e controle as bicicletas alugadas.
+              </span>
 
-                <button
-                  v-if="authStore.isAdmin && aluguel.status === 'Ativo'"
-                  class="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-200 transition-colors"
-                  @click="finalizarAluguel(aluguel.id)"
-                >
-                  Finalizar
-                </button>
+              <span v-else>
+                Solicite novos aluguéis, acompanhe suas reservas e cancele solicitações ativas quando necessário.
+              </span>
+            </p>
+          </div>
 
-                <button
-                  v-if="aluguel.status === 'Ativo'"
-                  class="bg-yellow-100 text-yellow-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-yellow-200 transition-colors"
-                  @click="cancelarAluguel(aluguel.id)"
-                >
-                  Cancelar
-                </button>
+          <NuxtLink
+            to="/alugueis/novo"
+            class="group inline-flex items-center justify-center rounded-2xl bg-emerald-400 px-6 py-3.5 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-1 hover:bg-emerald-300"
+          >
+            Novo aluguel
+            <span class="ml-2 transition-transform group-hover:translate-x-1">
+              →
+            </span>
+          </NuxtLink>
+        </div>
 
-                <button
-                  v-if="authStore.isAdmin"
-                  class="bg-red-100 text-red-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors"
-                  @click="excluirAluguel(aluguel.id)"
-                >
-                  Excluir
-                </button>
+        <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-white/10">
+            <p class="text-sm text-slate-400">
+              Total
+            </p>
 
-                <span
-                  v-if="!authStore.isAdmin && aluguel.status !== 'Ativo'"
-                  class="text-xs text-slate-500"
-                >
-                  Nenhuma ação disponível
-                </span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            <p class="mt-2 text-3xl font-black text-white">
+              {{ totalAlugueis }}
+            </p>
+          </div>
 
-    <div
-      v-else
-      class="mt-8 bg-white border border-slate-200 rounded-xl p-8 text-center"
-    >
-      <h2 class="text-xl font-bold text-slate-900">
-        Nenhum aluguel encontrado
-      </h2>
+          <div class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-emerald-400/15">
+            <p class="text-sm text-emerald-200">
+              Ativos
+            </p>
 
-      <p class="mt-2 text-slate-600">
-        {{ authStore.isAdmin ? 'Ainda não existem aluguéis cadastrados no sistema.' : 'Você ainda não possui aluguéis cadastrados.' }}
-      </p>
+            <p class="mt-2 text-3xl font-black text-emerald-300">
+              {{ alugueisAtivos }}
+            </p>
+          </div>
 
-      <NuxtLink
-        to="/alugueis/novo"
-        class="inline-block mt-5 bg-emerald-700 text-white px-5 py-3 rounded-lg font-medium hover:bg-emerald-800 transition-colors"
+          <div class="rounded-2xl border border-blue-400/20 bg-blue-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-blue-400/15">
+            <p class="text-sm text-blue-100">
+              Finalizados
+            </p>
+
+            <p class="mt-2 text-3xl font-black text-blue-300">
+              {{ alugueisFinalizados }}
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-red-400/20 bg-red-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-red-400/15">
+            <p class="text-sm text-red-100">
+              Cancelados
+            </p>
+
+            <p class="mt-2 text-3xl font-black text-red-300">
+              {{ alugueisCancelados }}
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-yellow-400/15">
+            <p class="text-sm text-yellow-100">
+              Valor total
+            </p>
+
+            <p class="mt-2 text-xl font-black text-yellow-300">
+              {{ formatarMoeda(valorTotalAlugueis) }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-6xl mx-auto px-6 py-12">
+      <div
+        v-if="alugueisStore.carregando"
+        class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm"
       >
-        Criar novo aluguel
-      </NuxtLink>
-    </div>
-  </section>
+        <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-500" />
+
+        <p class="mt-4 font-semibold text-slate-600">
+          Carregando aluguéis...
+        </p>
+      </div>
+
+      <div
+        v-else-if="alugueisStore.alugueis.length > 0"
+        class="grid gap-6 lg:grid-cols-2"
+      >
+        <article
+          v-for="aluguel in alugueisStore.alugueis"
+          :key="aluguel.id"
+          class="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-200"
+        >
+          <div class="relative overflow-hidden bg-slate-950 p-6 text-white">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.28),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.24),transparent_38%)]" />
+
+            <div class="relative flex items-start justify-between gap-4">
+              <div>
+                <span
+                  class="inline-flex rounded-full border px-3 py-1 text-xs font-black backdrop-blur"
+                  :class="statusClasse(aluguel.status)"
+                >
+                  {{ aluguel.status }}
+                </span>
+
+                <h2 class="mt-4 text-2xl font-black text-white">
+                  {{ aluguel.nomeCliente }}
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-300">
+                  {{ aluguel.telefoneCliente }}
+                </p>
+              </div>
+
+              <div class="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/10 text-4xl backdrop-blur transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+                {{ cardIcone(aluguel.status) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="p-6">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="rounded-2xl bg-slate-50 p-4">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Bicicleta
+                </p>
+
+                <p class="mt-2 font-black text-slate-900">
+                  {{ aluguel.bicicletaNome }}
+                </p>
+              </div>
+
+              <div class="rounded-2xl bg-emerald-50 p-4">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+                  Valor total
+                </p>
+
+                <p class="mt-2 font-black text-emerald-800">
+                  {{ formatarMoeda(aluguel.valorTotal) }}
+                </p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 p-4">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Retirada
+                </p>
+
+                <p class="mt-2 font-black text-slate-900">
+                  {{ formatarData(aluguel.dataRetirada) }}
+                </p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 p-4">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Devolução
+                </p>
+
+                <p class="mt-2 font-black text-slate-900">
+                  {{ formatarData(aluguel.dataDevolucao) }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              v-if="aluguel.observacao"
+              class="mt-5 rounded-2xl border border-slate-200 bg-white p-4"
+            >
+              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Observação
+              </p>
+
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                {{ aluguel.observacao }}
+              </p>
+            </div>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+              <NuxtLink
+                v-if="authStore.isAdmin"
+                :to="`/alugueis/${aluguel.id}/editar`"
+                class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-700 transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                Editar
+              </NuxtLink>
+
+              <button
+                v-if="authStore.isAdmin && aluguel.status === 'Ativo'"
+                type="button"
+                class="inline-flex items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition-all hover:-translate-y-0.5 hover:bg-blue-100"
+                @click="finalizarAluguel(aluguel.id)"
+              >
+                Finalizar
+              </button>
+
+              <button
+                v-if="aluguel.status === 'Ativo'"
+                type="button"
+                class="inline-flex items-center justify-center rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-black text-yellow-700 transition-all hover:-translate-y-0.5 hover:bg-yellow-100"
+                @click="cancelarAluguel(aluguel.id)"
+              >
+                Cancelar
+              </button>
+
+              <button
+                v-if="authStore.isAdmin"
+                type="button"
+                class="inline-flex items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition-all hover:-translate-y-0.5 hover:bg-red-100"
+                @click="excluirAluguel(aluguel.id)"
+              >
+                Excluir
+              </button>
+
+              <span
+                v-if="!authStore.isAdmin && aluguel.status !== 'Ativo'"
+                class="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500"
+              >
+                Nenhuma ação disponível
+              </span>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div
+        v-else
+        class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm"
+      >
+        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-4xl">
+          🚲
+        </div>
+
+        <h2 class="mt-6 text-2xl font-black text-slate-900">
+          Nenhum aluguel encontrado
+        </h2>
+
+        <p class="mt-3 text-slate-600">
+          {{ authStore.isAdmin ? 'Ainda não existem aluguéis cadastrados no sistema.' : 'Você ainda não possui aluguéis cadastrados.' }}
+        </p>
+
+        <NuxtLink
+          to="/alugueis/novo"
+          class="mt-6 inline-flex items-center justify-center rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-1 hover:bg-emerald-400"
+        >
+          Criar novo aluguel
+        </NuxtLink>
+      </div>
+    </section>
+  </main>
 </template>

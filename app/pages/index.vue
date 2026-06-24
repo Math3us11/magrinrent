@@ -14,12 +14,12 @@ const banners = [
   {
     titulo: 'Controle completo para administradores',
     subtitulo: 'Gerencie bicicletas, status, valores e aluguéis em poucos cliques.',
-    imagem: '/img/banner-bike-1.jpg'
+    imagem: '/img/banner-bike-2.png'
   },
   {
     titulo: 'Uma experiência simples para clientes',
     subtitulo: 'Clientes podem solicitar aluguéis e acompanhar suas reservas.',
-    imagem: '/img/banner-bike-1.jpg'
+    imagem: '/img/banner-bike-3.png'
   }
 ]
 

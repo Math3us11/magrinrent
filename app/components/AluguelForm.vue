@@ -1,26 +1,29 @@
 <script setup lang="ts">
-import type { Bicicleta } from '~/types/bicicleta'
 import type { AluguelFormData, StatusAluguel } from '~/types/aluguel'
 
 const props = defineProps<{
-  bicicletas: Bicicleta[]
-  initialValues?: AluguelFormData
-  submitLabel?: string
-  mostrarStatus?: boolean
+  dadosIniciais?: AluguelFormData
+  carregando?: boolean
+  textoBotao?: string
+  exibirStatus?: boolean
 }>()
 
 const emit = defineEmits<{
-  submit: [dados: AluguelFormData]
+  salvar: [dados: AluguelFormData]
 }>()
 
+const bicicletasStore = useBicicletasStore()
+
+const erro = ref('')
+
 const form = reactive<AluguelFormData>({
-  nomeCliente: props.initialValues?.nomeCliente ?? '',
-  telefoneCliente: props.initialValues?.telefoneCliente ?? '',
-  bicicletaId: props.initialValues?.bicicletaId ?? 0,
-  dataRetirada: props.initialValues?.dataRetirada ?? '',
-  dataDevolucao: props.initialValues?.dataDevolucao ?? '',
-  status: props.initialValues?.status ?? 'Ativo',
-  observacao: props.initialValues?.observacao ?? ''
+  nomeCliente: '',
+  telefoneCliente: '',
+  bicicletaId: 0,
+  dataRetirada: '',
+  dataDevolucao: '',
+  status: 'Ativo',
+  observacao: ''
 })
 
 const statusOptions: StatusAluguel[] = [
@@ -29,156 +32,249 @@ const statusOptions: StatusAluguel[] = [
   'Cancelado'
 ]
 
-const bicicletaSelecionada = computed(() => {
-  return props.bicicletas.find((bicicleta) => bicicleta.id === form.bicicletaId)
+onMounted(async () => {
+  await bicicletasStore.carregarBicicletas()
 })
 
-const totalPrevisto = computed(() => {
-  if (!bicicletaSelecionada.value || !form.dataRetirada || !form.dataDevolucao) {
-    return 0
-  }
+watch(
+  () => props.dadosIniciais,
+  (dados) => {
+    if (dados) {
+      form.nomeCliente = dados.nomeCliente
+      form.telefoneCliente = dados.telefoneCliente
+      form.bicicletaId = Number(dados.bicicletaId)
+      form.dataRetirada = dados.dataRetirada
+      form.dataDevolucao = dados.dataDevolucao
+      form.status = dados.status
+      form.observacao = dados.observacao
+    }
+  },
+  { immediate: true }
+)
+
+const bicicletasParaSelecao = computed(() => {
+  return bicicletasStore.bicicletas.filter((bicicleta) => {
+    return bicicleta.status === 'Disponível' || bicicleta.id === Number(form.bicicletaId)
+  })
+})
+
+const bicicletaSelecionada = computed(() => {
+  return bicicletasStore.bicicletas.find((bicicleta) => bicicleta.id === Number(form.bicicletaId))
+})
+
+const quantidadeDias = computed(() => {
+  if (!form.dataRetirada || !form.dataDevolucao) return 0
 
   const inicio = new Date(form.dataRetirada)
   const fim = new Date(form.dataDevolucao)
 
-  if (fim < inicio) {
-    return 0
-  }
+  if (fim < inicio) return 0
 
   const diferenca = fim.getTime() - inicio.getTime()
-  const dias = Math.max(Math.ceil(diferenca / (1000 * 60 * 60 * 24)), 1)
+  const dias = Math.ceil(diferenca / (1000 * 60 * 60 * 24))
 
-  return dias * bicicletaSelecionada.value.valorDiaria
+  return Math.max(dias, 1)
+})
+
+const valorPrevisto = computed(() => {
+  if (!bicicletaSelecionada.value) return 0
+
+  return quantidadeDias.value * Number(bicicletaSelecionada.value.valorDiaria)
 })
 
 function formatarMoeda(valor: number) {
-  return valor.toLocaleString('pt-BR', {
+  return Number(valor).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL'
   })
 }
 
 function enviarFormulario() {
-  if (!form.nomeCliente || !form.telefoneCliente || !form.bicicletaId) {
-    alert('Preencha cliente, telefone e bicicleta.')
+  erro.value = ''
+
+  if (!form.nomeCliente.trim()) {
+    erro.value = 'Informe o nome do cliente.'
     return
   }
 
-  if (!form.dataRetirada || !form.dataDevolucao) {
-    alert('Preencha as datas do aluguel.')
+  if (!form.telefoneCliente.trim()) {
+    erro.value = 'Informe o telefone do cliente.'
+    return
+  }
+
+  if (!form.bicicletaId) {
+    erro.value = 'Selecione uma bicicleta.'
+    return
+  }
+
+  if (!form.dataRetirada) {
+    erro.value = 'Informe a data de retirada.'
+    return
+  }
+
+  if (!form.dataDevolucao) {
+    erro.value = 'Informe a data de devolução.'
     return
   }
 
   if (new Date(form.dataDevolucao) < new Date(form.dataRetirada)) {
-    alert('A data de devolução não pode ser menor que a data de retirada.')
+    erro.value = 'A data de devolução não pode ser menor que a data de retirada.'
     return
   }
 
-  emit('submit', {
-    nomeCliente: form.nomeCliente,
-    telefoneCliente: form.telefoneCliente,
+  emit('salvar', {
+    nomeCliente: form.nomeCliente.trim(),
+    telefoneCliente: form.telefoneCliente.trim(),
     bicicletaId: Number(form.bicicletaId),
     dataRetirada: form.dataRetirada,
     dataDevolucao: form.dataDevolucao,
     status: form.status,
-    observacao: form.observacao
+    observacao: form.observacao.trim()
   })
 }
 </script>
 
 <template>
   <form
-    class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5"
+    class="grid gap-6"
     @submit.prevent="enviarFormulario"
   >
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">
-        Nome do cliente
-      </label>
-
-      <input
-        v-model="form.nomeCliente"
-        type="text"
-        class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
-        placeholder="Ex: João Silva"
-      >
-    </div>
-
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">
-        Telefone do cliente
-      </label>
-
-      <input
-        v-model="form.telefoneCliente"
-        type="text"
-        class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
-        placeholder="Ex: (69) 99999-9999"
-      >
-    </div>
-
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">
-        Bicicleta
-      </label>
-
-      <select
-        v-model.number="form.bicicletaId"
-        class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
-      >
-        <option :value="0">
-          Selecione uma bicicleta
-        </option>
-
-        <option
-          v-for="bicicleta in bicicletas"
-          :key="bicicleta.id"
-          :value="bicicleta.id"
-        >
-          {{ bicicleta.nome }} - R$ {{ bicicleta.valorDiaria }} / diária
-        </option>
-      </select>
+    <div
+      v-if="erro"
+      class="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-200"
+    >
+      {{ erro }}
     </div>
 
     <div class="grid gap-5 md:grid-cols-2">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Data de retirada
+        <label
+          for="nomeCliente"
+          class="text-sm font-bold text-slate-200"
+        >
+          Nome do cliente
         </label>
 
         <input
-          v-model="form.dataRetirada"
-          type="date"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
+          id="nomeCliente"
+          v-model="form.nomeCliente"
+          type="text"
+          placeholder="Ex: Matheus Endlich"
+          class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
         >
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Data de devolução
+        <label
+          for="telefoneCliente"
+          class="text-sm font-bold text-slate-200"
+        >
+          Telefone
         </label>
 
         <input
-          v-model="form.dataDevolucao"
-          type="date"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
+          id="telefoneCliente"
+          v-model="form.telefoneCliente"
+          type="text"
+          placeholder="Ex: (69) 99999-9999"
+          class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
         >
       </div>
     </div>
 
-    <div v-if="mostrarStatus">
-      <label class="block text-sm font-medium text-slate-700 mb-1">
+    <div>
+      <label
+        for="bicicleta"
+        class="text-sm font-bold text-slate-200"
+      >
+        Bicicleta
+      </label>
+
+      <select
+        id="bicicleta"
+        v-model.number="form.bicicletaId"
+        class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all focus:border-emerald-400/60 focus:bg-slate-900 focus:ring-4 focus:ring-emerald-400/10"
+      >
+        <option
+          :value="0"
+          disabled
+          class="bg-slate-950 text-white"
+        >
+          Selecione uma bicicleta
+        </option>
+
+        <option
+          v-for="bicicleta in bicicletasParaSelecao"
+          :key="bicicleta.id"
+          :value="bicicleta.id"
+          class="bg-slate-950 text-white"
+        >
+          {{ bicicleta.nome }} - {{ bicicleta.categoria }} - {{ formatarMoeda(bicicleta.valorDiaria) }}
+        </option>
+      </select>
+
+      <p
+        v-if="bicicletasParaSelecao.length === 0"
+        class="mt-2 text-sm text-yellow-300"
+      >
+        Nenhuma bicicleta disponível para aluguel no momento.
+      </p>
+    </div>
+
+    <div class="grid gap-5 md:grid-cols-2">
+      <div>
+        <label
+          for="dataRetirada"
+          class="text-sm font-bold text-slate-200"
+        >
+          Data de retirada
+        </label>
+
+        <input
+          id="dataRetirada"
+          v-model="form.dataRetirada"
+          type="date"
+          class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
+        >
+      </div>
+
+      <div>
+        <label
+          for="dataDevolucao"
+          class="text-sm font-bold text-slate-200"
+        >
+          Data de devolução
+        </label>
+
+        <input
+          id="dataDevolucao"
+          v-model="form.dataDevolucao"
+          type="date"
+          class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
+        >
+      </div>
+    </div>
+
+    <div
+      v-if="props.exibirStatus !== false"
+    >
+      <label
+        for="status"
+        class="text-sm font-bold text-slate-200"
+      >
         Status
       </label>
 
       <select
+        id="status"
         v-model="form.status"
-        class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
+        class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all focus:border-emerald-400/60 focus:bg-slate-900 focus:ring-4 focus:ring-emerald-400/10"
       >
         <option
           v-for="status in statusOptions"
           :key="status"
           :value="status"
+          class="bg-slate-950 text-white"
         >
           {{ status }}
         </option>
@@ -186,42 +282,81 @@ function enviarFormulario() {
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">
+      <label
+        for="observacao"
+        class="text-sm font-bold text-slate-200"
+      >
         Observação
       </label>
 
       <textarea
+        id="observacao"
         v-model="form.observacao"
         rows="4"
-        class="w-full border border-slate-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
-        placeholder="Ex: Cliente solicitou capacete junto com a bicicleta"
+        placeholder="Informe alguma observação sobre o aluguel..."
+        class="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
       />
     </div>
 
-    <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
-      <p class="text-sm text-slate-600">
-        Valor previsto:
-      </p>
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          Bicicleta
+        </p>
 
-      <p class="text-2xl font-bold text-emerald-700">
-        {{ formatarMoeda(totalPrevisto) }}
-      </p>
+        <p class="mt-2 font-black text-white">
+          {{ bicicletaSelecionada?.nome || 'Não selecionada' }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">
+          Diárias
+        </p>
+
+        <p class="mt-2 font-black text-emerald-200">
+          {{ quantidadeDias }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-yellow-300">
+          Valor previsto
+        </p>
+
+        <p class="mt-2 font-black text-yellow-200">
+          {{ formatarMoeda(valorPrevisto) }}
+        </p>
+      </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      <button
-        type="submit"
-        class="bg-emerald-700 text-white px-5 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-colors"
-      >
-        {{ submitLabel ?? 'Salvar' }}
-      </button>
-
+    <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
       <NuxtLink
         to="/alugueis"
-        class="bg-slate-100 text-slate-700 px-5 py-2 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+        class="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white transition-all hover:-translate-y-1 hover:bg-white/15"
       >
         Cancelar
       </NuxtLink>
+
+      <button
+        type="submit"
+        class="group inline-flex items-center justify-center rounded-2xl bg-emerald-400 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-1 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        :disabled="props.carregando || bicicletasParaSelecao.length === 0"
+      >
+        <span v-if="props.carregando">
+          Salvando...
+        </span>
+
+        <span
+          v-else
+          class="flex items-center"
+        >
+          {{ props.textoBotao || 'Salvar aluguel' }}
+          <span class="ml-2 transition-transform group-hover:translate-x-1">
+            →
+          </span>
+        </span>
+      </button>
     </div>
   </form>
 </template>
