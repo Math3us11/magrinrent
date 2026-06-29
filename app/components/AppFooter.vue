@@ -176,20 +176,6 @@ onMounted(async () => {
           <p class="text-sm text-slate-500">
             © {{ anoAtual }} MagrinRent. Projeto acadêmico de sistema web.
           </p>
-
-          <div class="flex flex-wrap gap-3 text-sm text-slate-500">
-            <span class="rounded-full bg-white/5 px-3 py-1">
-              Desenvolvimento Web
-            </span>
-
-            <span class="rounded-full bg-white/5 px-3 py-1">
-              CRUD
-            </span>
-
-            <span class="rounded-full bg-white/5 px-3 py-1">
-              Banco de Dados
-            </span>
-          </div>
         </div>
       </div>
     </div>

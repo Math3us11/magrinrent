@@ -36,12 +36,36 @@ onMounted(async () => {
   await bicicletasStore.carregarBicicletas()
 })
 
+function mascararTelefone(valor: string) {
+  const numeros = valor.replace(/\D/g, '').slice(0, 11)
+
+  if (numeros.length <= 2) {
+    return numeros
+  }
+
+  if (numeros.length <= 6) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`
+  }
+
+  if (numeros.length <= 10) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(6)}`
+  }
+
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`
+}
+
+function aplicarMascaraTelefone(event: Event) {
+  const input = event.target as HTMLInputElement
+
+  form.telefoneCliente = mascararTelefone(input.value)
+}
+
 watch(
   () => props.dadosIniciais,
   (dados) => {
     if (dados) {
       form.nomeCliente = dados.nomeCliente
-      form.telefoneCliente = dados.telefoneCliente
+      form.telefoneCliente = mascararTelefone(dados.telefoneCliente)
       form.bicicletaId = Number(dados.bicicletaId)
       form.dataRetirada = dados.dataRetirada
       form.dataDevolucao = dados.dataDevolucao
@@ -97,8 +121,15 @@ function enviarFormulario() {
     return
   }
 
-  if (!form.telefoneCliente.trim()) {
+  const telefoneNumeros = form.telefoneCliente.replace(/\D/g, '')
+
+  if (!telefoneNumeros) {
     erro.value = 'Informe o telefone do cliente.'
+    return
+  }
+
+  if (telefoneNumeros.length < 10 || telefoneNumeros.length > 11) {
+    erro.value = 'Informe um telefone válido com DDD.'
     return
   }
 
@@ -124,7 +155,7 @@ function enviarFormulario() {
 
   emit('salvar', {
     nomeCliente: form.nomeCliente.trim(),
-    telefoneCliente: form.telefoneCliente.trim(),
+    telefoneCliente: mascararTelefone(form.telefoneCliente),
     bicicletaId: Number(form.bicicletaId),
     dataRetirada: form.dataRetirada,
     dataDevolucao: form.dataDevolucao,
@@ -159,7 +190,7 @@ function enviarFormulario() {
           id="nomeCliente"
           v-model="form.nomeCliente"
           type="text"
-          placeholder="Ex: Matheus Endlich"
+          placeholder="Ex: Dom Quixote"
           class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
         >
       </div>
@@ -176,8 +207,12 @@ function enviarFormulario() {
           id="telefoneCliente"
           v-model="form.telefoneCliente"
           type="text"
+          inputmode="numeric"
+          maxlength="15"
+          autocomplete="tel"
           placeholder="Ex: (69) 99999-9999"
           class="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/15 focus:ring-4 focus:ring-emerald-400/10"
+          @input="aplicarMascaraTelefone"
         >
       </div>
     </div>

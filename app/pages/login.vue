@@ -11,18 +11,6 @@ onMounted(async () => {
   }
 })
 
-function preencherAdmin() {
-  email.value = 'admin@magrinrent.com'
-  senha.value = 'admin123'
-  erro.value = ''
-}
-
-function preencherCliente() {
-  email.value = 'cliente@magrinrent.com'
-  senha.value = 'cliente123'
-  erro.value = ''
-}
-
 async function realizarLogin() {
   erro.value = ''
 
@@ -62,53 +50,37 @@ async function realizarLogin() {
 
           <p class="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
             Entre com seu perfil para gerenciar bicicletas, registrar aluguéis
-            e acompanhar as operações do sistema.
+            e acompanhar as operações do sistema de forma simples e organizada.
           </p>
 
           <div class="mt-10 grid gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              class="group rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5 text-left backdrop-blur transition-all hover:-translate-y-1 hover:bg-emerald-400/15"
-              @click="preencherAdmin"
-            >
+            <div class="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-emerald-400/15">
               <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950 shadow-lg shadow-emerald-500/20">
                 A
               </div>
 
               <h2 class="mt-4 text-lg font-black text-white">
-                Entrar como admin
+                Perfil administrador
               </h2>
 
               <p class="mt-2 text-sm leading-relaxed text-slate-400">
-                Acesso completo para gerenciar bicicletas e todos os aluguéis.
+                Gerencia bicicletas, acompanha aluguéis e controla os registros do sistema.
               </p>
+            </div>
 
-              <p class="mt-4 text-sm font-bold text-emerald-300 transition-all group-hover:translate-x-1">
-                Preencher dados →
-              </p>
-            </button>
-
-            <button
-              type="button"
-              class="group rounded-3xl border border-blue-400/20 bg-blue-400/10 p-5 text-left backdrop-blur transition-all hover:-translate-y-1 hover:bg-blue-400/15"
-              @click="preencherCliente"
-            >
+            <div class="rounded-3xl border border-blue-400/20 bg-blue-400/10 p-5 backdrop-blur transition-all hover:-translate-y-1 hover:bg-blue-400/15">
               <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-400 text-xl font-black text-slate-950 shadow-lg shadow-blue-500/20">
                 C
               </div>
 
               <h2 class="mt-4 text-lg font-black text-white">
-                Entrar como cliente
+                Perfil cliente
               </h2>
 
               <p class="mt-2 text-sm leading-relaxed text-slate-400">
-                Acesso para solicitar aluguéis e acompanhar suas reservas.
+                Solicita novos aluguéis e acompanha suas reservas cadastradas.
               </p>
-
-              <p class="mt-4 text-sm font-bold text-blue-300 transition-all group-hover:translate-x-1">
-                Preencher dados →
-              </p>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -118,20 +90,18 @@ async function realizarLogin() {
 
           <div class="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
             <div class="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6 md:p-8">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <p class="text-sm font-bold uppercase tracking-[0.25em] text-emerald-300">
-                    Login
-                  </p>
+              <div>
+                <p class="text-sm font-bold uppercase tracking-[0.25em] text-emerald-300">
+                  Login
+                </p>
 
-                  <h2 class="mt-2 text-3xl font-black text-white">
-                    Acesse sua conta
-                  </h2>
-                </div>
+                <h2 class="mt-2 text-3xl font-black text-white">
+                  Acesse sua conta
+                </h2>
 
-                <div class="hidden h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300 via-emerald-400 to-blue-500 text-lg font-black text-slate-950 shadow-lg shadow-emerald-500/20 sm:flex">
-                  MR
-                </div>
+                <p class="mt-3 text-sm leading-relaxed text-slate-400">
+                  Informe seus dados de acesso para entrar no sistema.
+                </p>
               </div>
 
               <form class="mt-8 grid gap-5" @submit.prevent="realizarLogin">
@@ -196,62 +166,6 @@ async function realizarLogin() {
                   </span>
                 </button>
               </form>
-
-              <div class="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5">
-                <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">
-                  Usuários de teste
-                </p>
-
-                <div class="mt-4 grid gap-3">
-                  <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                    <div class="flex items-center justify-between gap-3">
-                      <div>
-                        <p class="text-sm font-bold text-white">
-                          Administrador
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                          admin@magrinrent.com / admin123
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        class="rounded-xl bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-300 transition-all hover:bg-emerald-400/20"
-                        @click="preencherAdmin"
-                      >
-                        Usar
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                    <div class="flex items-center justify-between gap-3">
-                      <div>
-                        <p class="text-sm font-bold text-white">
-                          Cliente
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                          cliente@magrinrent.com / cliente123
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        class="rounded-xl bg-blue-400/10 px-3 py-2 text-xs font-black text-blue-300 transition-all hover:bg-blue-400/20"
-                        @click="preencherCliente"
-                      >
-                        Usar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">
-                Projeto acadêmico desenvolvido com Nuxt, Vue 3, Pinia, Tailwind CSS e MySQL.
-              </p>
             </div>
           </div>
         </div>
